@@ -66,16 +66,17 @@ object UnitConverter {
         selectedUnit: String,
         parsed: ParsedServing
     ): Float {
-        if (selectedUnit == "Servings") return amount
+        val selectedLower = selectedUnit.lowercase()
+        if (selectedLower == "servings") return amount
 
-        // If user selected the base unit itself (e.g. "slice")
-        if (selectedUnit.lowercase() == parsed.baseUnit.lowercase()) {
+        // If user selected the base unit itself (e.g. "cake", "slice")
+        if (selectedLower == parsed.baseUnit.lowercase()) {
             return amount / parsed.baseQuantity
         }
 
         // Try metric conversion
-        val inputMl = volumeToMl[selectedUnit.lowercase()]?.let { it * amount }
-        val inputG = weightToG[selectedUnit.lowercase()]?.let { it * amount }
+        val inputMl = volumeToMl[selectedLower]?.let { it * amount }
+        val inputG = weightToG[selectedLower]?.let { it * amount }
 
         // Determine base metric value
         val baseMetricValue = parsed.metricQuantity ?: run {
@@ -84,47 +85,32 @@ object UnitConverter {
             val w = weightToG[parsed.baseUnit.lowercase()]
             if (v != null) v * parsed.baseQuantity
             else if (w != null) w * parsed.baseQuantity
-            else null
+            else 1f // fallback to 1 to avoid division by zero
         }
 
-        if (baseMetricValue != null) {
-            val isVolumeBase = parsed.metricUnit == "ml" || volumeToMl.containsKey(parsed.baseUnit.lowercase())
-            
-            if (isVolumeBase && inputMl != null) {
-                // Volume to Volume
-                return inputMl / baseMetricValue
-            }
-            
-            if (!isVolumeBase && inputG != null) {
-                // Weight to Weight
-                return inputG / baseMetricValue
-            }
-
-            // Cross conversion (Density handling)
-            // If user enters 'g' but base is 'ml', we assume 1g = 1ml (common for many foods/liquids)
-            if (inputG != null && isVolumeBase) return inputG / baseMetricValue
-            if (inputMl != null && !isVolumeBase) return inputMl / baseMetricValue
+        val isVolumeBase = parsed.metricUnit == "ml" || volumeToMl.containsKey(parsed.baseUnit.lowercase())
+        
+        if (isVolumeBase) {
+            if (inputMl != null) return inputMl / baseMetricValue
+            if (inputG != null) return inputG / baseMetricValue // Assume 1g = 1ml fallback
+        } else {
+            if (inputG != null) return inputG / baseMetricValue
+            if (inputMl != null) return inputMl / baseMetricValue // Assume 1ml = 1g fallback
         }
 
-        // Final fallback: identity or best effort
+        // Final fallback: identity
         return amount
     }
-    
+
     fun getAvailableUnits(parsed: ParsedServing): List<String> {
         val units = mutableListOf("Servings")
-        val base = parsed.baseUnit.lowercase()
-        if (base.isNotBlank()) {
+        if (parsed.baseUnit.isNotBlank()) {
             units.add(parsed.baseUnit)
         }
         
-        val isVolume = parsed.metricUnit == "ml" || 
-                      volumeToMl.keys.any { base.contains(it) }
-        
-        if (isVolume) {
-            units.addAll(listOf("ml", "cup", "tbsp", "fl oz"))
-        } else {
-            units.addAll(listOf("g", "oz", "lb"))
-        }
+        // Show both weight and volume units for flexibility
+        units.addAll(listOf("g", "oz", "lb"))
+        units.addAll(listOf("cup", "tbsp", "ml", "fl oz"))
         
         return units.distinct()
     }

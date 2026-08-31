@@ -169,7 +169,7 @@ fun DailyLogScreen(viewModel: MacroViewModel) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "v1.9.2-ExpandedStore",
+                    text = "v1.9.3-Precision",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -310,7 +310,7 @@ fun DailyLogScreen(viewModel: MacroViewModel) {
                                                         selectedUnit = parsed.baseUnit
                                                         servingInput = if (parsed.baseQuantity % 1f == 0f) 
                                                             parsed.baseQuantity.toInt().toString() 
-                                                            else parsed.baseQuantity.toString()
+                                                            else "%.2f".format(parsed.baseQuantity)
                                                     } else {
                                                         selectedUnit = "Servings"
                                                         servingInput = "1"
@@ -382,6 +382,26 @@ fun DailyLogScreen(viewModel: MacroViewModel) {
                                             }
                                         }
                                     }
+                                }
+
+                                val calculatedServings = remember(servingInput, selectedUnit, selectedFood) {
+                                    val amount = servingInput.toFloatOrNull() ?: 0f
+                                    val food = selectedFood
+                                    if (food != null) {
+                                        val parsed = UnitConverter.parseServingSize(food.servingSize)
+                                        if (parsed != null) {
+                                            UnitConverter.calculateServings(amount, selectedUnit, parsed)
+                                        } else amount
+                                    } else 0f
+                                }
+
+                                if (selectedFood != null && calculatedServings > 0f) {
+                                    Text(
+                                        text = "Total Servings: ${"%.2f".format(calculatedServings)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
                                 }
 
                                 Spacer(modifier = Modifier.height(12.dp))
